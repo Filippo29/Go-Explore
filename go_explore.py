@@ -54,11 +54,13 @@ class Agent(nn.Module):
             trajectory = Trajectory(start_cell=start_cell_index)
             finished = False
             action = self.random_action()
+            max_steps = 1000
+            step = 0
+            n_found = 0
             while not finished:
+                action = self.random_action(action)
                 next_state, reward, terminated, truncated, info = env.step(action)
-                if reward > 0:
-                    plt.imshow(next_state)
-                    plt.show()
+                finished = terminated or truncated or step >= max_steps
                 trajectory.add(processed_state, action, reward) # add last processed state with the action done in it and the obtained reward
                 processed_state = self.process_state(next_state)
 
@@ -68,30 +70,34 @@ class Agent(nn.Module):
                     new_distance = start_cell.distance_from_start + trajectory.size()
                     new_cell = Cell(env.clone_state(), trajectory, new_distance, new_reward)
                     self.cells.add(processed_state, new_cell)
-                    env.close()
                     print("Added new cell with reward: ", new_reward, "after ", new_distance, "steps. New num cells: ", self.cells.size())
+                    n_found += 1
                     if new_cell.reward_from_start > best_cell_reward:
                         print("Saved trajectory with reward: ", new_cell.reward_from_start, "after ", new_cell.distance_from_start, "steps.")
                         self.cells.save_trajectory_to_cell_as_file(new_cell, "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
                         best_cell_reward = new_reward
                     break # if found new cell, stop exploring
+                elif index == start_cell_index or index in self.cells.get_cells_indexes_from_start_to_cell(cell):
+                    continue
                 else:
                     # update trajectory
                     new_reward = start_cell.reward_from_start + trajectory.sum_rewards()
                     new_distance = start_cell.distance_from_start + trajectory.size()
                     if cell.reward_from_start < new_reward or (cell.distance_from_start > new_distance and cell.reward_from_start == new_reward):
                         print("updating trajectory, total reward: ", new_reward, "after ", new_distance, "steps. New num cells: ", self.cells.size())
+                        self.cells.cells[index].distance_from_start = new_distance
+                        self.cells.cells[index].reward_from_start = new_reward
                         self.cells.cells[index].update_trajectory(trajectory)
                         self.cells.cells[index].distance_from_start = new_distance
                         self.cells.cells[index].reward_from_start = new_reward
+                        n_found += 1
                         if new_reward > best_cell_reward:
                             print("Saved trajectory with reward: ", new_reward, "after ", new_distance, "steps.")
                             self.cells.save_trajectory_to_cell_as_file(self.cells.cells[index], "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
                             best_cell_reward = new_reward
                         break # if found new trajectory, stop exploring
                 
-                finished = terminated or truncated
-                action = self.random_action(action)
+                step += 1
 
 class Trajectory:
     def __init__(self, start_cell=-1):
@@ -161,9 +167,20 @@ class CellsManager:
             if trajectory.start_cell == -1:
                 break
             else:
+                print(trajectory.start_cell)
                 trajectory = self.cells[trajectory.start_cell].trajectory
         tot_traj = np.array([])
         for traj in trajectories:
             tot_traj = np.concatenate((tot_traj, traj.actions), axis=0)
         print(tot_traj)
         np.array(tot_traj).tofile(filename)
+    
+    def get_cells_indexes_from_start_to_cell(self, cell):
+        cells_indexes = []
+        while True:
+            if cell.trajectory.start_cell == -1:
+                break
+            else:
+                cells_indexes.append(cell.trajectory.start_cell)
+                cell = self.cells[cell.trajectory.start_cell]
+        return cells_indexes
