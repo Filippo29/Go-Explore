@@ -7,6 +7,8 @@ import gym
 from random import random
 from time import sleep
 
+import matplotlib.pyplot as plt
+
 class Agent(nn.Module):
     def __init__(self):
         super(Agent, self).__init__()
@@ -42,6 +44,7 @@ class Agent(nn.Module):
         print("starting, cells: ", self.cells.size())
 
         best_cell_reward = 0
+        best_cell_distance = 0
         
         while True: #self.cells.size() < 1000:
             #print("num cells: ", self.cells.size())
@@ -56,7 +59,6 @@ class Agent(nn.Module):
             action = self.random_action()
             max_steps = 1000
             step = 0
-            n_found = 0
             while not finished:
                 action = self.random_action(action)
                 next_state, reward, terminated, truncated, info = env.step(action)
@@ -71,11 +73,11 @@ class Agent(nn.Module):
                     new_cell = Cell(env.clone_state(), trajectory, new_distance, new_reward)
                     self.cells.add(processed_state, new_cell)
                     print("Added new cell with reward: ", new_reward, "after ", new_distance, "steps. New num cells: ", self.cells.size())
-                    n_found += 1
-                    if new_cell.reward_from_start > best_cell_reward:
+                    if new_reward > best_cell_reward or (new_reward == best_cell_reward and new_distance < best_cell_distance):
                         print("Saved trajectory with reward: ", new_cell.reward_from_start, "after ", new_cell.distance_from_start, "steps.")
-                        self.cells.save_trajectory_to_cell_as_file(new_cell, "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
+                        save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
                         best_cell_reward = new_reward
+                        best_cell_distance = new_distance
                     break # if found new cell, stop exploring
                 elif index == start_cell_index or index in self.cells.get_cells_indexes_from_start_to_cell(cell):
                     continue
@@ -90,14 +92,17 @@ class Agent(nn.Module):
                         self.cells.cells[index].update_trajectory(trajectory)
                         self.cells.cells[index].distance_from_start = new_distance
                         self.cells.cells[index].reward_from_start = new_reward
-                        n_found += 1
-                        if new_reward > best_cell_reward:
+                        if new_reward > best_cell_reward or (new_reward == best_cell_reward and new_distance < best_cell_distance):
                             print("Saved trajectory with reward: ", new_reward, "after ", new_distance, "steps.")
-                            self.cells.save_trajectory_to_cell_as_file(self.cells.cells[index], "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
+                            save_array(self.cells.get_trajectory_to_cell(self.cells.cells[index]), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
                             best_cell_reward = new_reward
+                            best_cell_distance = new_distance
                         break # if found new trajectory, stop exploring
                 
                 step += 1
+
+def save_array(array, filename="trajectory.txt"):
+        np.array(array).tofile(filename)
 
 class Trajectory:
     def __init__(self, start_cell=-1):
@@ -159,22 +164,6 @@ class CellsManager:
         index = np.random.randint(len(self.cells))
         return index, self.states[index], self.cells[index]
     
-    def save_trajectory_to_cell_as_file(self, cell, filename="trajectory.txt"):
-        trajectories = []
-        trajectory = cell.trajectory
-        while True:
-            trajectories.append(trajectory)
-            if trajectory.start_cell == -1:
-                break
-            else:
-                print(trajectory.start_cell)
-                trajectory = self.cells[trajectory.start_cell].trajectory
-        tot_traj = np.array([])
-        for traj in trajectories:
-            tot_traj = np.concatenate((tot_traj, traj.actions), axis=0)
-        print(tot_traj)
-        np.array(tot_traj).tofile(filename)
-    
     def get_cells_indexes_from_start_to_cell(self, cell):
         cells_indexes = []
         while True:
@@ -183,4 +172,20 @@ class CellsManager:
             else:
                 cells_indexes.append(cell.trajectory.start_cell)
                 cell = self.cells[cell.trajectory.start_cell]
+        cells_indexes.reverse()
         return cells_indexes
+    
+    def get_trajectory_to_cell(self, cell):
+        trajectories = []
+        trajectory = cell.trajectory
+        while True:
+            trajectories.append(trajectory)
+            if trajectory.start_cell == -1:
+                break
+            else:
+                trajectory = self.cells[trajectory.start_cell].trajectory
+        trajectories.reverse()
+        tot_traj = np.array([])
+        for traj in trajectories:
+            tot_traj = np.concatenate((tot_traj, traj.actions), axis=0)
+        return tot_traj
