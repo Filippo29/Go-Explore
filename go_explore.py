@@ -36,33 +36,39 @@ class Agent(nn.Module):
     
     def train(self):
         # phase 1: explore
+        frame_skip = 4
         self.cells = CellsManager()
         env = gym.make('MontezumaRevengeDeterministic-v4')
-        next_state = env.reset()[0]
+        env.reset()[0]
+
+        for _ in range(frame_skip):
+            next_frame, _, _, _, _ = env.step(0)
+        next_state = next_frame
+
         import matplotlib.pyplot as plt
-        self.cells.add(self.process_state(next_state), Cell(env.clone_state(), Trajectory())) # add initial state
+        self.cells.add(self.process_state(next_state), Cell(env.clone_state(), Trajectory(start_cell=-1))) # add initial state
         print("starting, cells: ", self.cells.size())
 
         best_cell_reward = 0
         best_cell_distance = 0
         
-        while True: #self.cells.size() < 1000:
-            #print("num cells: ", self.cells.size())
+        while True:
             # explore
             env = gym.make('MontezumaRevengeDeterministic-v4')
-            state = env.reset()[0]
+            env.reset()
             start_cell_index, processed_state, start_cell = self.cells.sample_cell()
             env.restore_state(start_cell.checkpoint)
-            #processed_state = self.process_state(state)
             trajectory = Trajectory(start_cell=start_cell_index)
             finished = False
             action = self.random_action()
-            max_steps = 1000
-            step = 0
             while not finished:
                 action = self.random_action(action)
-                next_state, reward, terminated, truncated, info = env.step(action)
-                finished = terminated or truncated or step >= max_steps
+                reward = 0
+                for _ in range(frame_skip):
+                    next_frame, frame_reward, frame_terminated, frame_truncated, info = env.step(action)
+                    reward += frame_reward
+                    finished = finished or frame_terminated or frame_truncated
+                next_state = next_frame
                 trajectory.add(processed_state, action, reward) # add last processed state with the action done in it and the obtained reward
                 processed_state = self.process_state(next_state)
 
@@ -78,34 +84,18 @@ class Agent(nn.Module):
                         save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
                         best_cell_reward = new_reward
                         best_cell_distance = new_distance
+                    elif reward > 1000:
+                        print("Saved trajectory with reward: ", new_cell.reward_from_start, "after ", new_cell.distance_from_start, "steps.")
+                        save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
                     break # if found new cell, stop exploring
-                elif index == start_cell_index or index in self.cells.get_cells_indexes_from_start_to_cell(cell):
-                    continue
                 else:
-                    # update trajectory
-                    new_reward = start_cell.reward_from_start + trajectory.sum_rewards()
-                    new_distance = start_cell.distance_from_start + trajectory.size()
-                    if cell.reward_from_start < new_reward or (cell.distance_from_start > new_distance and cell.reward_from_start == new_reward):
-                        print("updating trajectory, total reward: ", new_reward, "after ", new_distance, "steps. New num cells: ", self.cells.size())
-                        self.cells.cells[index].distance_from_start = new_distance
-                        self.cells.cells[index].reward_from_start = new_reward
-                        self.cells.cells[index].update_trajectory(trajectory)
-                        self.cells.cells[index].distance_from_start = new_distance
-                        self.cells.cells[index].reward_from_start = new_reward
-                        if new_reward > best_cell_reward or (new_reward == best_cell_reward and new_distance < best_cell_distance):
-                            print("Saved trajectory with reward: ", new_reward, "after ", new_distance, "steps.")
-                            save_array(self.cells.get_trajectory_to_cell(self.cells.cells[index]), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
-                            best_cell_reward = new_reward
-                            best_cell_distance = new_distance
-                        break # if found new trajectory, stop exploring
-                
-                step += 1
+                    self.cells.times_visited[index] += 1
 
 def save_array(array, filename="trajectory.txt"):
-        np.array(array).tofile(filename)
+    np.array(array).tofile(filename)
 
 class Trajectory:
-    def __init__(self, start_cell=-1):
+    def __init__(self, start_cell):
         self.states = []
         self.actions = np.array([])
         self.rewards = np.array([])
@@ -136,10 +126,20 @@ class CellsManager:
     def __init__(self):
         self.states = [] # processed state of the cell
         self.cells = np.array([]) # cell object
+
+        self.times_chosen = np.array([])
+        self.times_visited = np.array([])
+
+        self.eps1 = 0.001
+        self.eps2 = 0.00001
+        self.w = [0.1, 0.3] # wheights for times chosen and seen
+        self.p = [1, 1]
     
     def add(self, state, cell):
         self.states.append(state)
         self.cells = np.append(self.cells, cell)
+        self.times_chosen = np.append(self.times_chosen, 0)
+        self.times_visited = np.append(self.times_visited, 0)
     
     def contains(self, state):
         # return index of state
@@ -161,7 +161,9 @@ class CellsManager:
         return len(self.states)
     
     def sample_cell(self):
-        index = np.random.randint(len(self.cells))
+
+        index = np.random.choice(len(self.cells))
+        self.times_chosen[index] += 1
         return index, self.states[index], self.cells[index]
     
     def get_cells_indexes_from_start_to_cell(self, cell):
