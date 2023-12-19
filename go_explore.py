@@ -34,7 +34,7 @@ class Agent(nn.Module):
         prob_distribution[last_action] = 0.95
         return np.random.choice(self.action_space, p=prob_distribution)
     
-    def train(self):
+    def train(self, save_trajectories=True):
         # phase 1: explore
         frame_skip = 4
         self.cells = CellsManager()
@@ -79,14 +79,12 @@ class Agent(nn.Module):
                     new_cell = Cell(env.clone_state(), trajectory, new_distance, new_reward)
                     self.cells.add(processed_state, new_cell)
                     print("Added new cell with reward: ", new_reward, "after ", new_distance, "steps. New num cells: ", self.cells.size())
-                    if new_reward > best_cell_reward or (new_reward == best_cell_reward and new_distance < best_cell_distance):
-                        print("Saved trajectory with reward: ", new_cell.reward_from_start, "after ", new_cell.distance_from_start, "steps.")
-                        save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
-                        best_cell_reward = new_reward
-                        best_cell_distance = new_distance
-                    elif reward > 1000:
-                        print("Saved trajectory with reward: ", new_cell.reward_from_start, "after ", new_cell.distance_from_start, "steps.")
-                        save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
+                    if save_trajectories:
+                        if new_reward > best_cell_reward or (new_reward == best_cell_reward and new_distance < best_cell_distance):
+                            print("Saved trajectory with reward: ", new_cell.reward_from_start, "after ", new_cell.distance_from_start, "steps.")
+                            save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
+                            best_cell_reward = new_reward
+                            best_cell_distance = new_distance
                     break # if found new cell, stop exploring
                 else:
                     self.cells.times_visited[index] += 1
