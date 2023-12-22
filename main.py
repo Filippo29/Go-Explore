@@ -11,7 +11,7 @@ from environment import Montezuma
 from policy import robustification, Policy
 
 def build_trajectory(actions, transforms):
-    env = Montezuma()
+    env = Montezuma(transforms=transforms)
     state = env.reset()[0]
     trajectory = []
     for i in range(len(actions)):
