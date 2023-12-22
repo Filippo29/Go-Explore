@@ -7,7 +7,7 @@ import gym
 from random import random
 from time import sleep
 
-import matplotlib.pyplot as plt
+from environment import Montezuma
 
 class Agent(nn.Module):
     def __init__(self):
@@ -36,14 +36,9 @@ class Agent(nn.Module):
     
     def train(self, save_trajectories=True):
         # phase 1: explore
-        frame_skip = 4
         self.cells = CellsManager()
-        env = gym.make('MontezumaRevengeDeterministic-v4')
-        env.reset()[0]
-
-        for _ in range(frame_skip):
-            next_frame, _, _, _, _ = env.step(0)
-        next_state = next_frame
+        env = Montezuma()
+        next_state = env.reset()
 
         import matplotlib.pyplot as plt
         self.cells.add(self.process_state(next_state), Cell(env.clone_state(), Trajectory(start_cell=-1))) # add initial state
@@ -54,7 +49,7 @@ class Agent(nn.Module):
         
         while True:
             # explore
-            env = gym.make('MontezumaRevengeDeterministic-v4')
+            env = Montezuma()
             env.reset()
             start_cell_index, processed_state, start_cell = self.cells.sample_cell()
             env.restore_state(start_cell.checkpoint)
@@ -64,10 +59,9 @@ class Agent(nn.Module):
             while not finished:
                 action = self.random_action(action)
                 reward = 0
-                for _ in range(frame_skip):
-                    next_frame, frame_reward, frame_terminated, frame_truncated, info = env.step(action)
-                    reward += frame_reward
-                    finished = finished or frame_terminated or frame_truncated
+                next_frame, reward, finished, info = env.step(action)
+                if finished:
+                    break
                 next_state = next_frame
                 trajectory.add(processed_state, action, reward) # add last processed state with the action done in it and the obtained reward
                 processed_state = self.process_state(next_state)
