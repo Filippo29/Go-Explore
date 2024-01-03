@@ -3,20 +3,18 @@ from time import sleep
 from go_explore import Agent
 import numpy as np
 import argparse
-from torchvision.transforms import ToTensor, Grayscale, Compose
-import torch
 
 from environment import Montezuma
 
-from policy import robustification, Policy
+from policy import robustification
 
 def build_trajectory(actions, transforms):
-    env = Montezuma(transforms=transforms)
-    state = env.reset()[0]
+    env = Montezuma(frame_skip=4)
+    state = env.reset(0)[0]
     trajectory = []
     for i in range(len(actions)):
         action = actions[i]
-        next_state, reward, done, info = env.step(action)
+        next_state, reward, done, _, info = env.step(action)
         trajectory.append((state, action, env.clone_state(), reward))
         if done:
             break
@@ -37,21 +35,19 @@ if __name__ == '__main__':
     if args.phase1:
         agent.train()
     if args.phase2:
-        transforms = Compose([ToTensor(), Grayscale()])
+        transforms = None
         trajectory = build_trajectory(np.fromfile("best_trajectory_rew100.0_dist201.txt", dtype=np.float64).astype(int), transforms)
-        policy = robustification(trajectory, transforms)
-        torch.save(policy.state_dict(), "policy.pt")
+        robustification(trajectory, transforms)
     if args.test:
-        transforms = Compose([ToTensor(), Grayscale()])
-        env = Montezuma(render_mode='human')
-        policy = Policy(env.action_space.n)
-        policy.load_state_dict(torch.load("policy.pt"))
-        state = env.reset()[0]
+        from stable_baselines3 import PPO
+        transforms = None
+        env = Montezuma(deterministic=False, render_mode='human')
+        policy = PPO.load("montezuma_save", env=env, device="mps")
+        state = env.reset(0)[0]
         for _ in range(500):
             env.render()
-            action = policy(transforms(state).unsqueeze(0)).argmax().item()
-            next_state, reward, done, info = env.step(action)
+            action = policy.predict(state)[0]
+            next_state, reward, done, _, info = env.step(action)
             if done:
                 break
-            state = next_state
-            sleep(0.05)   
+            state = next_state 
