@@ -1,6 +1,6 @@
 import gym
 from time import sleep
-from go_explore import Agent
+from explore import Agent
 import numpy as np
 import argparse
 
@@ -25,27 +25,40 @@ if __name__ == '__main__':
     import warnings
     warnings.filterwarnings("ignore", category=DeprecationWarning) # silence deprecation warning of np.bool8 in gym
 
-    parser = argparse.ArgumentParser(description='Run training and evaluation')
+    parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--test', action='store_true')
     parser.add_argument('-p1', '--phase1', action='store_true')
     parser.add_argument('-p2', '--phase2', action='store_true')
+    parser.add_argument('--trajectorty', type=str, help='Input path to trajectory')
+    parser.add_argument('--startpoint', type=int, help='Input start point for robustification phase')
+    parser.add_argument('--policy', type=str, help='Input path to policy checkpoint')
     args = parser.parse_args()
 
     agent = Agent()
     if args.phase1:
-        agent.train()
+        agent.explore()
     if args.phase2:
+        if not args.trajectory:
+            traj_filename = "trajectory.txt"
+        else:
+            traj_filename = args.trajectory
+        start_point = None
+        if args.startpoint:
+            start_point = args.startpoint
         transforms = None
-        trajectory = build_trajectory(np.fromfile("best_trajectory_rew100.0_dist201.txt", dtype=np.float64).astype(int), transforms)
-        robustification(trajectory, transforms)
+        trajectory = build_trajectory(np.fromfile(traj_filename, dtype=np.float64).astype(int), transforms)
+        robustification(trajectory, transforms, start_point=start_point)
     if args.test:
         from stable_baselines3 import PPO
         transforms = None
         env = Montezuma(deterministic=False, render_mode='human')
-        policy = PPO.load("montezuma_save", env=env, device="mps")
+        if not args.policy:
+            policy_filename = "montezuma_save"
+        else:
+            policy_filename = args.policy
+        policy = PPO.load(policy_filename, env=env, device="mps")
         state = env.reset(0)[0]
         for _ in range(500):
-            env.render()
             action = policy.predict(state)[0]
             next_state, reward, done, _, info = env.step(action)
             if done:

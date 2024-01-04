@@ -4,20 +4,14 @@ import torch.nn.functional as F
 from torchvision.transforms import ToTensor, Grayscale, Compose
 import numpy as np
 import gym
-from random import random
-from time import sleep
 
 from environment import Montezuma
 
-class Agent(nn.Module):
+class Agent():
     def __init__(self):
-        super(Agent, self).__init__()
         self.transforms = Compose([ToTensor(), Grayscale()])
         env = gym.make('MontezumaRevengeDeterministic-v4')
         self.action_space = env.action_space.n
-        
-    def forward(self):
-        pass
 
     def process_state(self, state):
         state = self.transforms(state).unsqueeze(0)
@@ -34,13 +28,12 @@ class Agent(nn.Module):
         prob_distribution[last_action] = 0.95
         return np.random.choice(self.action_space, p=prob_distribution)
     
-    def train(self, save_trajectories=True):
+    def explore(self, save_trajectories=True):
         # phase 1: explore
         self.cells = CellsManager()
-        env = Montezuma()
+        env = Montezuma(frame_skip=4)
         next_state = env.reset()
 
-        import matplotlib.pyplot as plt
         self.cells.add(self.process_state(next_state), Cell(env.clone_state(), Trajectory(start_cell=-1))) # add initial state
         print("starting, cells: ", self.cells.size())
 
@@ -49,7 +42,7 @@ class Agent(nn.Module):
         
         while True:
             # explore
-            env = Montezuma()
+            env = Montezuma(frame_skip=4)
             env.reset()
             start_cell_index, processed_state, start_cell = self.cells.sample_cell()
             env.restore_state(start_cell.checkpoint)
