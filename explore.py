@@ -69,14 +69,14 @@ class Agent():
                     if save_trajectories:
                         if new_reward > best_cell_reward or (new_reward == best_cell_reward and new_distance < best_cell_distance):
                             print("Saved trajectory with reward: ", new_cell.reward_from_start, "after ", new_cell.distance_from_start, "steps.")
-                            save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".txt")
+                            save_array(self.cells.get_trajectory_to_cell(new_cell), "best_trajectory_rew" + str(new_reward) + "_dist" + str(new_distance) + ".npy")
                             best_cell_reward = new_reward
                             best_cell_distance = new_distance
                     break # if found new cell, stop exploring
                 else:
                     self.cells.times_visited[index] += 1
 
-def save_array(array, filename="trajectory.txt"):
+def save_array(array, filename="trajectory.npy"):
     np.array(array).tofile(filename)
 
 class Trajectory:

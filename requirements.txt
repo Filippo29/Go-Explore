@@ -1,0 +1,10 @@
+ale-py==0.8.1
+atari-py==0.2.9
+AutoROM==0.6.1
+AutoROM.accept-rom-license==0.6.1
+gym==0.26.2
+gymnasium==0.29.1
+pygame==2.5.2
+stable-baselines3==2.2.1
+torch==2.1.2
+torchvision==0.16.2
