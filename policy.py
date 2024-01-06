@@ -7,7 +7,7 @@ from environment import Montezuma
 def get_target_reward(trajectory, start_index):
     return sum([trajectory[i][3] for i in range(start_index, len(trajectory))])
 
-def robustification(trajectory, transforms, start_point=None, max_timesteps=1e2, patience=10):
+def robustification(trajectory, transforms, start_point=None, max_timesteps=1e2, patience=10, device="cpu"):
     if start_point is None:
         start_point = len(trajectory)-10
     deterministic = False
@@ -33,9 +33,9 @@ def robustification(trajectory, transforms, start_point=None, max_timesteps=1e2,
         if i == 0:
             if start_point < len(trajectory)-10:
                 # start from a checkpoint
-                model = PPO.load("montezuma_save", env=env, device="mps")
+                model = PPO.load("montezuma_save", env=env, device=device, learning_rate=0.00003)
             else:
-                model = PPO("CnnPolicy", env, device="mps", verbose=1)
+                model = PPO("CnnPolicy", env, device=device, verbose=1)
         else:
             model.set_env(env)
         score = test(Montezuma, transforms, model, trajectory, start_point, target_reward, num_simulations=5, deterministic=deterministic, log=True)
@@ -50,7 +50,7 @@ def robustification(trajectory, transforms, start_point=None, max_timesteps=1e2,
             if patience != -1 and epochs_with_no_reward >= patience:
                 break
         if patience != -1 and epochs_with_no_reward >= patience:
-            model = PPO.load("montezuma_save", env=env, device="mps")
+            model = PPO.load("montezuma_save", env=env, device=device)
             start_point += 1
             continue
         model.save("montezuma_save")

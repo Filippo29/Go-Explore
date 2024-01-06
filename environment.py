@@ -3,13 +3,15 @@ from gymnasium.spaces import Box
 import numpy as np
 
 class Montezuma(gym.Env):
-    def __init__(self, transforms=None, convert_grayscale=True, start_position=None, frame_skip=1, render_mode=None, deterministic=True, max_steps=np.inf, target_reward=np.inf):
+    def __init__(self, transforms=None, convert_grayscale=True, start_position=None, frame_skip=1, stack=4, render_mode=None, deterministic=True, max_steps=np.inf, target_reward=np.inf):
         env_name = 'MontezumaRevengeDeterministic-v4' if deterministic else 'MontezumaRevenge-v4'
         if render_mode is not None:
             self.env = gym.make(env_name, render_mode=render_mode)
         else:
             self.env = gym.make(env_name)
-        self.observation_space = Box(0, 255, (4, 210, 160), dtype=np.uint8)
+        self.stack = stack
+
+        self.observation_space = Box(0, 255, (self.stack, 210, 160), dtype=np.uint8)
         self.action_space = self.env.action_space
 
         self.frame_skip = frame_skip
@@ -37,8 +39,8 @@ class Montezuma(gym.Env):
             step_reward += reward
             if terminated or truncated or self.total_reward >= self.target_reward:
                 finished = True
-            if len(self.last_observations) < 4:
-                while len(self.last_observations) < 4:
+            if len(self.last_observations) < self.stack:
+                while len(self.last_observations) < self.stack:
                     self.last_observations.append(self.grayscale(obs))
             self.last_observations = self.last_observations[1:]
             obs = self.grayscale(obs)
@@ -67,7 +69,7 @@ class Montezuma(gym.Env):
             obs = self.grayscale(self.env.reset(seed=seed)[0])
             if self.transforms is not None:
                 obs = self.transforms(obs)
-            observations = [obs for _ in range(4)]
+            observations = [obs for _ in range(self.stack)]
             return np.stack(observations, dtype=np.float32), {}
     
     def get_action_meanings(self):

@@ -9,7 +9,7 @@ from environment import Montezuma
 
 class Agent():
     def __init__(self):
-        self.transforms = Compose([ToTensor(), Grayscale()])
+        self.transforms = Compose([ToTensor()])
         env = gym.make('MontezumaRevengeDeterministic-v4')
         self.action_space = env.action_space.n
 
@@ -31,8 +31,9 @@ class Agent():
     def explore(self, save_trajectories=True):
         # phase 1: explore
         self.cells = CellsManager()
-        env = Montezuma(frame_skip=4)
-        next_state = env.reset()
+        env = Montezuma(frame_skip=4, stack=1)
+        next_state = env.reset()[0]
+        print(next_state.shape)
 
         self.cells.add(self.process_state(next_state), Cell(env.clone_state(), Trajectory(start_cell=-1))) # add initial state
         print("starting, cells: ", self.cells.size())
@@ -42,7 +43,7 @@ class Agent():
         
         while True:
             # explore
-            env = Montezuma(frame_skip=4)
+            env = Montezuma(frame_skip=4, stack=1)
             env.reset()
             start_cell_index, processed_state, start_cell = self.cells.sample_cell()
             env.restore_state(start_cell.checkpoint)
@@ -52,7 +53,7 @@ class Agent():
             while not finished:
                 action = self.random_action(action)
                 reward = 0
-                next_frame, reward, finished, info = env.step(action)
+                next_frame, reward, finished, _, info = env.step(action)
                 if finished:
                     break
                 next_state = next_frame
