@@ -1,7 +1,5 @@
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-from torchvision.transforms import ToTensor, Grayscale, Compose
 import numpy as np
 import gym
 
@@ -58,7 +56,7 @@ class Agent():
                 trajectory.add(processed_state, action, reward) # add last processed state with the action done in it and the obtained reward
                 processed_state = self.process_state(next_state)
 
-                index, cell = self.cells.contains(processed_state)
+                index, _ = self.cells.contains(processed_state)
                 if index == -1:
                     new_reward = start_cell.reward_from_start + trajectory.sum_rewards()
                     new_distance = start_cell.distance_from_start + trajectory.size()
