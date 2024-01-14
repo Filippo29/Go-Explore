@@ -9,14 +9,13 @@ from environment import Montezuma
 
 class Agent():
     def __init__(self):
-        self.transforms = Compose([ToTensor()])
         env = gym.make('MontezumaRevengeDeterministic-v4')
         self.action_space = env.action_space.n
 
     def process_state(self, state):
-        state = self.transforms(state).unsqueeze(0)
+        state = torch.tensor(state).unsqueeze(0)
         state = F.interpolate(state, size=(11, 8), mode='area')
-        state = torch.round(state * 8).int()
+        state = torch.round(state / 255 * 8).int()
         return state
     
     def random_action(self, last_action=-1):
@@ -33,7 +32,6 @@ class Agent():
         self.cells = CellsManager()
         env = Montezuma(frame_skip=4, stack=1)
         next_state = env.reset()[0]
-        print(next_state.shape)
 
         self.cells.add(self.process_state(next_state), Cell(env.clone_state(), Trajectory(start_cell=-1))) # add initial state
         print("starting, cells: ", self.cells.size())
@@ -74,8 +72,6 @@ class Agent():
                             best_cell_reward = new_reward
                             best_cell_distance = new_distance
                     break # if found new cell, stop exploring
-                else:
-                    self.cells.times_visited[index] += 1
 
 def save_array(array, filename="trajectory.npy"):
     np.array(array).tofile(filename)
@@ -112,20 +108,10 @@ class CellsManager:
     def __init__(self):
         self.states = [] # processed state of the cell
         self.cells = np.array([]) # cell object
-
-        self.times_chosen = np.array([])
-        self.times_visited = np.array([])
-
-        self.eps1 = 0.001
-        self.eps2 = 0.00001
-        self.w = [0.1, 0.3] # wheights for times chosen and seen
-        self.p = [1, 1]
     
     def add(self, state, cell):
         self.states.append(state)
         self.cells = np.append(self.cells, cell)
-        self.times_chosen = np.append(self.times_chosen, 0)
-        self.times_visited = np.append(self.times_visited, 0)
     
     def contains(self, state):
         # return index of state
@@ -147,9 +133,7 @@ class CellsManager:
         return len(self.states)
     
     def sample_cell(self):
-
         index = np.random.choice(len(self.cells))
-        self.times_chosen[index] += 1
         return index, self.states[index], self.cells[index]
     
     def get_cells_indexes_from_start_to_cell(self, cell):
