@@ -16,7 +16,7 @@ To run the phase 1 of the algorithm just execute:
 ```bash
 python main.py --phase1
 ```
-By default the algorithm sample cells calculating scores as shown in the paper, if you want to sample cells with uniform probabilities you can specify
+By default, the algorithm samples cells and calculates scores as shown in the paper. If you want to sample cells with uniform probabilities, you can specify:
 ```bash
 python main.py --phase1 --sameprob
 ```
