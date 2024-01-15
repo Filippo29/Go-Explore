@@ -39,6 +39,7 @@ if __name__ == '__main__':
     parser.add_argument('-p1', '--phase1', action='store_true')
     parser.add_argument('-p2', '--phase2', action='store_true')
     parser.add_argument('-r', '--render', action='store_true')
+    parser.add_argument('-sp', '--sameprob', action='store_true')
     parser.add_argument('--trajectory', type=str, help='Input path to trajectory')
     parser.add_argument('--startpoint', type=int, help='Input start point for robustification phase')
     parser.add_argument('--maxtimesteps', type=int, help='Input max number of timesteps for each robustification step')
@@ -48,6 +49,7 @@ if __name__ == '__main__':
 
     agent = Agent()
     if args.phase1:
+        same_prob = True if args.sameprob else False
         agent.explore()
     if args.phase2:
         traj_filename = args.trajectory

@@ -25,7 +25,7 @@ class Agent():
         prob_distribution[last_action] = 0.95
         return np.random.choice(self.action_space, p=prob_distribution)
     
-    def explore(self, save_trajectories=True):
+    def explore(self, same_prob=True, save_trajectories=True):
         # phase 1: explore
         self.cells = CellsManager()
         env = Montezuma(frame_skip=4, stack=1)
@@ -41,7 +41,7 @@ class Agent():
             # explore
             env = Montezuma(frame_skip=4, stack=1)
             env.reset()
-            start_cell_index, processed_state, start_cell = self.cells.sample_cell()
+            start_cell_index, processed_state, start_cell = self.cells.sample_cell(same_prob=same_prob)
             env.restore_state(start_cell.checkpoint)
             trajectory = Trajectory(start_cell=start_cell_index)
             finished = False
@@ -53,7 +53,7 @@ class Agent():
                 if finished:
                     break
                 next_state = next_frame
-                trajectory.add(processed_state, action, reward) # add last processed state with the action done in it and the obtained reward
+                trajectory.add(action, reward) # add last processed state with the action done in it and the obtained reward
                 processed_state = self.process_state(next_state)
 
                 index, _ = self.cells.contains(processed_state)
@@ -70,19 +70,19 @@ class Agent():
                             best_cell_reward = new_reward
                             best_cell_distance = new_distance
                     break # if found new cell, stop exploring
+                else:
+                    self.cells.times_visited[index] += 1
 
 def save_array(array, filename="trajectory.npy"):
     np.array(array).tofile(filename)
 
 class Trajectory:
     def __init__(self, start_cell):
-        self.states = []
         self.actions = np.array([])
         self.rewards = np.array([])
         self.start_cell = start_cell # index of the cell where the trajectory starts
 
-    def add(self, state, action, reward):
-        self.states.append(state)
+    def add(self, action, reward):
         self.actions = np.append(self.actions, action)
         self.rewards = np.append(self.rewards, reward)
     
@@ -90,7 +90,7 @@ class Trajectory:
         return np.sum(self.rewards)
 
     def size(self):
-        return len(self.states)
+        return len(self.actions)
 
 class Cell:
     def __init__(self, checkpoint, trajectory, distance_from_start=0, reward_from_start=0):
@@ -106,10 +106,20 @@ class CellsManager:
     def __init__(self):
         self.states = [] # processed state of the cell
         self.cells = np.array([]) # cell object
+
+        self.times_chosen = np.array([])
+        self.times_visited = np.array([])
+
+        self.eps1 = 0.001
+        self.eps2 = 0.00001
+        self.w = [0.1, 0.3] # wheights for times chosen and seen
+        self.p = 0.5
     
     def add(self, state, cell):
         self.states.append(state)
         self.cells = np.append(self.cells, cell)
+        self.times_chosen = np.append(self.times_chosen, 0)
+        self.times_visited = np.append(self.times_visited, 0)
     
     def contains(self, state):
         # return index of state
@@ -130,8 +140,17 @@ class CellsManager:
     def size(self):
         return len(self.states)
     
-    def sample_cell(self):
-        index = np.random.choice(len(self.cells))
+    def sample_cell(self, same_prob=False):
+        if same_prob:
+            index = np.random.choice(len(self.cells))
+        else:
+            score1 = self.w[0]*(1/(self.times_chosen+self.eps1))**self.p + self.eps2
+            score2 = self.w[1]*(1/(self.times_visited+self.eps1))**self.p + self.eps2
+            score = score1 + score2
+            probabilities = score / np.sum(score)
+
+            index = np.random.choice(len(self.cells), p=probabilities)
+        self.times_chosen[index] += 1
         return index, self.states[index], self.cells[index]
     
     def get_cells_indexes_from_start_to_cell(self, cell):

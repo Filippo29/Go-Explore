@@ -33,7 +33,7 @@ def robustification(trajectory, transforms, start_point=None, max_timesteps=1e2,
         if i == 0:
             if start_point < len(trajectory)-10:
                 # start from a checkpoint
-                model = PPO.load("montezuma_save", env=env, device=device, learning_rate=0.00003)
+                model = PPO.load("montezuma_save", env=env, device=device)
             else:
                 model = PPO("CnnPolicy", env, device=device, verbose=1)
         else:
