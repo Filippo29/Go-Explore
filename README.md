@@ -16,6 +16,10 @@ To run the phase 1 of the algorithm just execute:
 ```bash
 python main.py --phase1
 ```
+By default the algorithm sample cells calculating scores as shown in the paper, if you want to sample cells with uniform probabilities you can specify
+```bash
+python main.py --phase1 --sameprob
+```
 This process will produce the best trajectory found for each checkpoint (points where a new reward is collected) as files named best_trajectory_rew<reward>_dist<steps>.npy.  
 ### Test phase 1
 To test a trajectory produced by the phase 1:
