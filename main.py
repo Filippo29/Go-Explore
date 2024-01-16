@@ -50,7 +50,7 @@ if __name__ == '__main__':
     agent = Agent()
     if args.phase1:
         same_prob = True if args.sameprob else False
-        agent.explore()
+        agent.explore(same_prob=same_prob)
     if args.phase2:
         traj_filename = args.trajectory
         if traj_filename is None:
